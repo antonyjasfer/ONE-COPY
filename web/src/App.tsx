@@ -63,6 +63,7 @@ export function App() {
   >(null);
   const [reconnecting, setReconnecting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [practiceNotice, setPracticeNotice] = useState(false);
 
   // Separate actionId refs per deliberate user intent so real network errors
   // reuse the exact same actionId, while deliberate new actions get a fresh UUID.
@@ -393,6 +394,31 @@ export function App() {
     }
   }, [syncTrialFromServer, trialId]);
 
+  const handleStartPractice = useCallback(() => {
+    if (dropTimerRef.current !== null) {
+      window.clearTimeout(dropTimerRef.current);
+      dropTimerRef.current = null;
+    }
+    initialActionIdRef.current = null;
+    checkActionIdRef.current = null;
+    retryActionIdRef.current = null;
+    displayedActionIdRef.current = null;
+    setTrialId(null);
+    setTrialState(null);
+    setCohort(null);
+    setVariant(null);
+    setExposedAt(null);
+    setDeadlineAt(null);
+    setCheckedEmptyAt(null);
+    setCheckedEmpty(false);
+    setReceipt(null);
+    setReveal(null);
+    setErrorMessage(null);
+    setTitle(DEFAULT_TITLE);
+    setPracticeNotice(true);
+    setPhase("ready");
+  }, []);
+
   return (
     <div className="page-shell">
       <main className="column">
@@ -426,6 +452,12 @@ export function App() {
                   Retry connection
                 </button>
               </div>
+            )}
+
+            {practiceNotice && (
+              <p className="status-note status-note--muted" role="status">
+                Practice mode — your live experiment trial is already recorded.
+              </p>
             )}
 
             {errorMessage && (
@@ -482,6 +514,7 @@ export function App() {
             onRetry={handleRetry}
             onReceiptVisible={handleReceiptVisible}
             onExpired={handleExpired}
+            onStartPractice={handleStartPractice}
           />
         )}
 

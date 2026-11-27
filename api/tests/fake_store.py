@@ -57,7 +57,6 @@ class InMemoryTrialStore:
         matches.sort(
             key=lambda t: (
                 0 if t["state"] in ("created", "recovering", "receipt_ready") else 1,
-                0 if t["cohort"] == enrolled_cohort else 1,
                 -t["created_at"].timestamp(),
             )
         )
@@ -87,10 +86,16 @@ class InMemoryTrialStore:
                 )
 
         cohorts = {t["cohort"] for t in visitor_trials}
-        if "practice" in cohorts and enrolled_cohort in cohorts:
-            raise ConflictError("Trials for this visitor have already been completed.")
-        if "practice" in cohorts and enrolled_cohort not in cohorts:
-            raise ConflictError("Practice trial already completed for this visitor.")
+        if "practice" in cohorts:
+            for t in visitor_trials:
+                if t["cohort"] == "practice" and t["state"] in ("finished", "expired"):
+                    tid = t["id"]
+                    del self.trials[tid]
+                    self.entries = [e for e in self.entries if e["trial_id"] != tid]
+                    self.actions = {k: v for k, v in self.actions.items() if k[0] != tid}
+                    self.event_ledger = {
+                        k: v for k, v in self.event_ledger.items() if k[0] != tid
+                    }
 
         trial_id = uuid4()
         self.trials[trial_id] = {

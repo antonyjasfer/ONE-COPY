@@ -197,6 +197,31 @@ body {
   cursor: not-allowed;
 }
 
+.btn-secondary {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 8px;
+  background-color: var(--bg-surface);
+  color: var(--ink-primary);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-subtle);
+  border-color: #cbd5e1;
+}
+
+.btn-secondary:focus-visible {
+  outline: 2px solid var(--action-blue);
+  outline-offset: 2px;
+}
+
 .btn-link {
   min-height: 44px;
   padding: 0 4px;

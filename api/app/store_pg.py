@@ -74,11 +74,10 @@ class PostgresTrialStore:
                   AND experiment = %s
                 ORDER BY
                     CASE WHEN state IN ('created', 'recovering', 'receipt_ready') THEN 0 ELSE 1 END,
-                    CASE WHEN cohort = %s THEN 0 ELSE 1 END,
                     created_at DESC
                 LIMIT 1
                 """,
-                (visitor_id, experiment, enrolled_cohort),
+                (visitor_id, experiment),
             )
             row = await cur.fetchone()
             return row["id"] if row else None
@@ -118,10 +117,18 @@ class PostgresTrialStore:
                         )
 
                 existing_cohorts = {row["cohort"] for row in rows}
-                if "practice" in existing_cohorts and enrolled_cohort in existing_cohorts:
-                    raise ConflictError("Trials for this visitor have already been completed.")
-                if "practice" in existing_cohorts and enrolled_cohort not in existing_cohorts:
-                    raise ConflictError("Practice trial already completed for this visitor.")
+                if "practice" in existing_cohorts:
+                    # Allow visitors to run repeatable practice demos without affecting live trials.
+                    await conn.execute(
+                        """
+                        DELETE FROM trials
+                        WHERE visitor_id = %s
+                          AND experiment = %s
+                          AND cohort = 'practice'
+                          AND state IN ('finished', 'expired')
+                        """,
+                        (visitor_id, experiment),
+                    )
 
                 trial_id = uuid4()
                 await conn.execute(

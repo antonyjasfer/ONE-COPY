@@ -572,7 +572,7 @@ def test_session_returns_completed_or_expired_trial_for_reload_resume():
         assert detail["finalEntryCount"] == 1
 
     # Expired trial case
-    app2, _store2, _sdk2, clock2 = build_client(flag, first_mode="request_lost")
+    app2, _store2, sdk2, clock2 = build_client(flag, first_mode="request_lost")
     with TestClient(app2) as client2:
         trial_id2 = start_session_and_trial(client2, "Expired reload")
         client2.post(
@@ -587,3 +587,30 @@ def test_session_returns_completed_or_expired_trial_for_reload_resume():
         s_reload2 = client2.post("/api/session", headers={"Origin": ORIGIN})
         assert s_reload2.status_code == 200
         assert s_reload2.json()["activeTrialId"] == str(trial_id2)
+
+        # Visitor can start a repeatable practice run after expiry without touching live metrics
+        p1 = client2.post("/api/trials", json={"title": "Practice 1"}, headers={"Origin": ORIGIN})
+        assert p1.status_code == 201
+        p1_id = UUID(p1.json()["trialId"])
+        p1_init = client2.post(
+            f"/api/trials/{p1_id}/submit",
+            json={"actionId": str(uuid4()), "intent": "initial"},
+            headers={"Origin": ORIGIN},
+        )
+        assert p1_init.status_code == 202
+        p1_code = client2.post(
+            f"/api/trials/{p1_id}/submit",
+            json={"actionId": str(uuid4()), "intent": "retry"},
+            headers={"Origin": ORIGIN},
+        ).json()["receiptCode"]
+        client2.post(
+            f"/api/receipts/{p1_code}/displayed",
+            json={"actionId": str(uuid4())},
+            headers={"Origin": ORIGIN},
+        )
+
+        # Repeatable second practice run succeeds and does not emit extra Flagsmith events
+        p2 = client2.post("/api/trials", json={"title": "Practice 2"}, headers={"Origin": ORIGIN})
+        assert p2.status_code == 201
+        assert len(sdk2.exposures) == 1
+        assert len(sdk2.events) == 0

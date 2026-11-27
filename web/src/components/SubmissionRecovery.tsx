@@ -35,6 +35,7 @@ export interface SubmissionRecoveryProps {
   onRetry: () => Promise<void> | void;
   onReceiptVisible: (receiptCode: string) => Promise<void> | void;
   onExpired: () => Promise<void> | void;
+  onStartPractice?: () => void;
 }
 
 function isCheckStatusVariant(variant: RecoveryVariant | null): boolean {
@@ -89,6 +90,7 @@ export function SubmissionRecovery({
   onRetry,
   onReceiptVisible,
   onExpired,
+  onStartPractice,
 }: SubmissionRecoveryProps) {
   const [remainingMs, setRemainingMs] = useState<number>(() => {
     if (!deadlineAt) return 60_000;
@@ -368,6 +370,16 @@ export function SubmissionRecovery({
               </dd>
             </div>
           </dl>
+
+          {onStartPractice && (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={onStartPractice}
+            >
+              Try a practice run
+            </button>
+          )}
         </div>
       )}
     </section>
