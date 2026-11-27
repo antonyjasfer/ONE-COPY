@@ -43,15 +43,24 @@ class InMemoryTrialStore:
     async def health_check(self) -> bool:
         return True
 
-    async def get_active_trial_id(self, visitor_id: UUID, experiment: str) -> UUID | None:
+    async def get_active_trial_id(
+        self,
+        visitor_id: UUID,
+        experiment: str,
+        enrolled_cohort: str,
+    ) -> UUID | None:
         matches = [
             t
             for t in self.trials.values()
-            if t["visitor_id"] == visitor_id
-            and t["experiment"] == experiment
-            and t["state"] in ("created", "recovering", "receipt_ready")
+            if t["visitor_id"] == visitor_id and t["experiment"] == experiment
         ]
-        matches.sort(key=lambda t: t["created_at"], reverse=True)
+        matches.sort(
+            key=lambda t: (
+                0 if t["state"] in ("created", "recovering", "receipt_ready") else 1,
+                0 if t["cohort"] == enrolled_cohort else 1,
+                -t["created_at"].timestamp(),
+            )
+        )
         return matches[0]["id"] if matches else None
 
     async def create_trial(

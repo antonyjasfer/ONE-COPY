@@ -531,3 +531,59 @@ def test_security_origin_redirect_slashes_ownership_and_summary():
         assert sj["primaryRate"] == 1.0
         assert sj["recoveryTimeSec"]["p50"] == 7.0
         assert "Secret user title" not in summary.text
+
+
+def test_session_returns_completed_or_expired_trial_for_reload_resume():
+    # Finished trial case
+    flag = make_flag("check-status-first", "check_status")
+    app, _store, _sdk, clock = build_client(flag, first_mode="reply_lost")
+    with TestClient(app) as client:
+        s_init = client.post("/api/session", headers={"Origin": ORIGIN}).json()
+        assert s_init["activeTrialId"] is None
+
+        trial_id = UUID(
+            client.post("/api/trials", json={"title": "Reload me"}, headers={"Origin": ORIGIN}).json()["trialId"]
+        )
+        client.post(
+            f"/api/trials/{trial_id}/submit",
+            json={"actionId": str(uuid4()), "intent": "initial"},
+            headers={"Origin": ORIGIN},
+        )
+        code = client.post(
+            f"/api/trials/{trial_id}/check-status",
+            json={"actionId": str(uuid4())},
+            headers={"Origin": ORIGIN},
+        ).json()["receiptCode"]
+        client.post(
+            f"/api/receipts/{code}/displayed",
+            json={"actionId": str(uuid4())},
+            headers={"Origin": ORIGIN},
+        )
+
+        # Reloading / opening second tab calls POST /api/session and must receive the finished trial
+        s_reload = client.post("/api/session", headers={"Origin": ORIGIN})
+        assert s_reload.status_code == 200
+        assert s_reload.json()["activeTrialId"] == str(trial_id)
+
+        detail = client.get(f"/api/trials/{trial_id}").json()
+        assert detail["state"] == "finished"
+        assert detail["receiptCode"] == code
+        assert detail["failureMode"] == "reply_lost"
+        assert detail["finalEntryCount"] == 1
+
+    # Expired trial case
+    app2, _store2, _sdk2, clock2 = build_client(flag, first_mode="request_lost")
+    with TestClient(app2) as client2:
+        trial_id2 = start_session_and_trial(client2, "Expired reload")
+        client2.post(
+            f"/api/trials/{trial_id2}/submit",
+            json={"actionId": str(uuid4()), "intent": "initial"},
+            headers={"Origin": ORIGIN},
+        )
+        clock2.advance(65)
+        detail2 = client2.get(f"/api/trials/{trial_id2}").json()
+        assert detail2["state"] == "expired"
+
+        s_reload2 = client2.post("/api/session", headers={"Origin": ORIGIN})
+        assert s_reload2.status_code == 200
+        assert s_reload2.json()["activeTrialId"] == str(trial_id2)

@@ -52,7 +52,12 @@ def compute_allowed_actions(
 class TrialStore(Protocol):
     async def health_check(self) -> bool: ...
 
-    async def get_active_trial_id(self, visitor_id: UUID, experiment: str) -> UUID | None: ...
+    async def get_active_trial_id(
+        self,
+        visitor_id: UUID,
+        experiment: str,
+        enrolled_cohort: str,
+    ) -> UUID | None: ...
 
     async def create_trial(
         self,

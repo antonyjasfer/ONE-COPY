@@ -149,7 +149,7 @@ def create_app(
             set_visitor_cookie(response, visitor_id, cfg)
 
         active_trial_id = await trial_store.get_active_trial_id(
-            visitor_id, cfg.experiment_name
+            visitor_id, cfg.experiment_name, cfg.app_cohort
         )
         return SessionResponse(
             visitorSuffix=visitor_id.hex[-6:].upper(),

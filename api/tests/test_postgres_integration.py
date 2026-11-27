@@ -56,3 +56,7 @@ def test_postgres_schema_and_end_to_end_smoke():
         )
         assert disp.status_code == 200
         assert disp.json()["state"] == "finished"
+
+        s_reload = client.post("/api/session", headers={"Origin": "http://localhost:3000"})
+        assert s_reload.status_code == 200
+        assert s_reload.json()["activeTrialId"] == tid

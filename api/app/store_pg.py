@@ -59,7 +59,12 @@ class PostgresTrialStore:
         except Exception:
             return False
 
-    async def get_active_trial_id(self, visitor_id: UUID, experiment: str) -> UUID | None:
+    async def get_active_trial_id(
+        self,
+        visitor_id: UUID,
+        experiment: str,
+        enrolled_cohort: str,
+    ) -> UUID | None:
         async with self._pool.connection() as conn:
             cur = await conn.execute(
                 """
@@ -67,11 +72,13 @@ class PostgresTrialStore:
                 FROM trials
                 WHERE visitor_id = %s
                   AND experiment = %s
-                  AND state IN ('created', 'recovering', 'receipt_ready')
-                ORDER BY created_at DESC
+                ORDER BY
+                    CASE WHEN state IN ('created', 'recovering', 'receipt_ready') THEN 0 ELSE 1 END,
+                    CASE WHEN cohort = %s THEN 0 ELSE 1 END,
+                    created_at DESC
                 LIMIT 1
                 """,
-                (visitor_id, experiment),
+                (visitor_id, experiment, enrolled_cohort),
             )
             row = await cur.fetchone()
             return row["id"] if row else None
